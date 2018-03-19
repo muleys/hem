@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <flow name="priceincreaseFlow">
+        <file:inbound-endpoint responseTimeout="10000" doc:name="File"/>
+        <dw:transform-message doc:name="Transform Message">
+            <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+}]]></dw:set-payload>
+        </dw:transform-message>
+        <foreach doc:name="For Each">
+            <sfdc:no-operation-selected config-ref="" doc:name="Salesforce - Get SKU Records"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+}]]></dw:set-payload>
+            </dw:transform-message>
+            <set-variable variableName="priceSKU" value="" doc:name="Price SKU Variable"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+{
+}]]></dw:set-payload>
+            </dw:transform-message>
+            <sfdc:no-operation-selected config-ref="" doc:name="Salesforce Deactivate SKU"/>
+            <dw:transform-message doc:name="Transform Message">
+                <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+---
+priceSKU]]></dw:set-payload>
+            </dw:transform-message>
+            <sfdc:no-operation-selected config-ref="" doc:name="Salesforce Create New Active SKU"/>
+            <choice doc:name="Choice">
+                <when expression="">
+                    <logger level="INFO" doc:name="Logger -Success"/>
+                </when>
+                <otherwise>
+                    <file:outbound-endpoint responseTimeout="10000" doc:name="File"/>
+                </otherwise>
+            </choice>
+        </foreach>
+    </flow>
+</mule>
