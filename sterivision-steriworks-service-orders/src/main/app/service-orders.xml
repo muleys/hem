@@ -17,7 +17,7 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
             <fixed-frequency-scheduler frequency="10" timeUnit="MINUTES"/>
             <logger message="Started" level="INFO" doc:name="Logger"/>
         </poll>
-        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Account__c,Generator_Account__c,Id,Name,Purchase_Order__c,Ready_to_be_Invoiced__c,SVMXC__Completed_Date_Time__c,SVMXC__Order_Status__c FROM SVMXC__Service_Order__c WHERE (Ready_to_be_Invoiced__c = false AND Name = 'WO-00440630')" doc:name="Salesforce"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Account__c,Generator_Account__c,Id,Name,Purchase_Order__c,Ready_to_be_Invoiced__c,Revenue_Location__c,SVMXC__Completed_Date_Time__c,SVMXC__Order_Status__c FROM SVMXC__Service_Order__c WHERE (Ready_to_be_Invoiced__c = false AND Name = 'WO-00440630')" doc:name="Salesforce"/>
         <set-payload value="#[org.apache.commons.collections.IteratorUtils.toList(payload)]" doc:name="Set Payload"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-variable variableName="orders"><![CDATA[%dw 1.0
@@ -27,7 +27,7 @@ payload]]></dw:set-variable>
         </dw:transform-message>
         <logger message="Orders fetched from SFDC  : #[flowVars.orders[0].Name]" level="INFO" doc:name="Logger"/>
         <enricher target="#[flowVars.account]" doc:name="Message Enricher">
-            <flow-ref name="service-ordersSub_Flow_Account" doc:name="Flow Reference"/>
+            <flow-ref name="service-ordersSub_Flow_Account" doc:name="service-ordersSub_Flow_Account"/>
         </enricher>
         <foreach collection="#[flowVars.orders]" doc:name="For Each">
             <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Bill_Qty__c,Bill_UOM__c,Container_Qty__c,Id,Item_Description__c,Name,Preview_Billing_System_Response__c,Preview_Billing_System_Status__c,Preview_Last_Modified__c,Price_Book_Entry__c,Processed_As_Item__c,SVMXC__Actual_Price2__c,Total_Quantity_11__c FROM SVMXC__Service_Order_Line__c WHERE SMAX_PS_Work_Order_Number__c = '#[payload.Name]'" doc:name="Salesforce"/>
@@ -36,31 +36,30 @@ payload]]></dw:set-variable>
                 <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-[
-  {
-    "CustomerNumber": flowVars.account.Customer_Dynamics_AX_Number__c,
-    "ExternalSiteNumber": flowVars.orders.Generator_Account__c,
+payload map ((lines , indexOfAccount) -> {
+	
+	"CustomerNumber": flowVars.account[0].Customer_Dynamics_AX_Number__c,
+    "ExternalSiteNumber": flowVars.orders[0].Generator_Account__c,
     //"PONumber": "po",
     "ExternalServiceOrderNumber": "eson011",
-    "ServiceOrderNumber": flowVars.orders.Name,
+    "ServiceOrderNumber": flowVars.orders[0].Name,
     "ExternalServiceOrderLineNumber": "esoln011",
     "ServiceDocumentNumber": "sdn011",
     "WasteProfileNumber": "wpn011",
-    "ServiceDate": flowVars.orders.SVMXC__Completed_Date_Time__c,
-    "SvcCode": payload.Processed_As_Item__c,
-    "Description": payload.Item_Description__c,
-    "UnitPrice": payload.SVMXC__Actual_Price2__c,
+    "ServiceDate": flowVars.orders[0].SVMXC__Completed_Date_Time__c,
+    "SvcCode": lines.Processed_As_Item__c,
+    "Description": lines.Item_Description__c,
+    "UnitPrice": lines.SVMXC__Actual_Price2__c,
     "MixedWasteFlag": 0,
-    "ShippingQuantity": payload.Total_Quantity_11__c,
+    "ShippingQuantity": lines.Total_Quantity_11__c,
     "TaxCategory": ".",
-    "BilledQuantity": payload.Bill_Qty__c,
-    "BilledUOM": payload.Bill_UOM__c,
-    "ShippingWeight": payload.Total_Quantity_11__c,
-    "LocationDimension": "0751",
+    "BilledQuantity": lines.Bill_Qty__c,
+    "BilledUOM": lines.Bill_UOM__c,
+    "ShippingWeight": lines.Total_Quantity_11__c,
+    "LocationDimension": flowVars.orders[0].Revenue_Location__c,
     "EnergyAndInsurance": flowVars.account.E_I__c,
 	"ServiceOrderType": 1
-  }
-]]]></dw:set-payload>
+})]]></dw:set-payload>
             </dw:transform-message>
             <logger message="Request to Steriworks :  #[payload]" level="INFO" doc:name="Logger"/>
             <http:request config-ref="HTTP_Request_Configuration" path="AddServiceOrders" method="POST" doc:name="HTTP">
@@ -86,12 +85,15 @@ payload]]></dw:set-payload>
                             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
-{
-}]]></dw:set-payload>
+[{
+	Name: flowVars.orders.Name,
+	SVMXC__Actual_Initial_Response__c: 'Success'
+}]]]></dw:set-payload>
                         </dw:transform-message>
                         <sfdc:update config-ref="Salesforce__Basic_Authentication" type="SVMXC__Service_Order__c" doc:name="Salesforce">
                             <sfdc:objects ref="#[payload]"/>
                         </sfdc:update>
+                        <logger message="Update Order Response  : #[payload]" level="INFO" doc:name="Logger"/>
                     </when>
                     <otherwise>
                         <logger message="Failed" level="INFO" doc:name="Logger"/>
@@ -111,13 +113,13 @@ payload]]></dw:set-payload>
 
     </sub-flow>
     <flow name="service-ordersFlow_Product">
-        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id,ProductCode,Taxable__c FROM Product2" doc:name="Salesforce"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id,ProductCode,Taxable__c FROM Product2 where id = #[payload.Price_Book_Entry__c]" doc:name="Salesforce"/>
 
     </flow>
     <sub-flow name="service-ordersSub_Price">
         <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Description__c,Price__c,Product_Family__c,Product_Name__c FROM Price_Book_Entry__c" doc:name="Salesforce"/>
     </sub-flow>
     <sub-flow name="service-ordersSub_Flow_Account">
-        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Dynamics_AX_Number__c,E_I__c FROM Account WHERE Id = #[flowVars.orders.Customer_Account__c]" doc:name="Salesforce"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Dynamics_AX_Number__c,E_I__c,Id FROM Account WHERE Customer_Dynamics_AX_Number__c &lt;&gt; '' LIMIT 1" doc:name="Salesforce"/>
     </sub-flow>
 </mule>
