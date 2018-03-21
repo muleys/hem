@@ -8,23 +8,24 @@ http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/cor
 http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+    <file:connector name="File" autoDelete="true" streaming="true" validateConnections="true" pollingFrequency="10000" doc:name="File"/>
+    <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication"/>
     <flow name="priceincreaseFlow">
-        <file:inbound-endpoint responseTimeout="10000" doc:name="File"/>
+        <file:inbound-endpoint path="C:\Dev\steri\price\in" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="80f3a8fd-55ae-4074-b601-97f6840162ec"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
-{
-}]]></dw:set-payload>
+payload]]></dw:set-payload>
         </dw:transform-message>
         <foreach doc:name="For Each">
-            <sfdc:no-operation-selected config-ref="" doc:name="Salesforce - Get SKU Records"/>
+            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id FROM Account WHERE Customer_Dynamics_AX_Number__c = '#[payload.&quot;Customer Number&quot;]'" doc:name="Salesforce"/>
+            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Account__c,Active__c,Approved_Destination__c,Available_for_Work_Orders__c,Case_by_case_pricing__c,Category__c,ConnectionReceivedId,ConnectionSentId,Contract_Id__c,Contract__c,CreatedById,CreatedDate,Current_Threshold_Value__c,Customer_Id__c,Customer_Price_Book__c,Description__c,Expiration_Date__c,Generator__c,Id,IsDeleted,Item_Description__c,LastActivityDate,LastModifiedById,LastModifiedDate,LastReferencedDate,LastViewedDate,Location_Price_Book__c,Minimum_Bill_Qty__c,Minimum_Price__c,Minimum_Type__c,Name,OwnerId,Preview_Calculate_By__c,Preview_ID__c,Preview_SKU__c,Preview_UOM__c,Price_Entry_Id__c,Price_Increase__c,Price_Source__c,Price__c,Pricing_Applied__c,Product_Description__c,Product_Family__c,Product_Name__c,Product__c,Profile_Price_Entry_Description__c,Profile_Special_Pricing__c,Programs__c,Project_Id__c,Quote_Proposal__c,RecordTypeId,SFDC_ID__c,SKU__c,SMAX_PS_Is_Broker_Formula__c,SVMX_PS_Profile_Process_Code__c,Segment__c,Source__c,Stericycle_Location__c,SubscriptionPriceEndDate__c,SubscriptionPriceStartDate__c,SubscriptionType__c,Subscription_Price__c,SystemModstamp,Territory__c,Threshold_Price__c,Threshold__c,Type__c,UOM__c,Verified__c,Waste_Profile__c,Zone__c FROM Price_Book_Entry__c where Account__c = #[payload.Id]" doc:name="Salesforce - Get SKU Records"/>
             <dw:transform-message doc:name="Transform Message">
-                <dw:set-payload><![CDATA[%dw 1.0
+                <dw:set-variable variableName="sku"><![CDATA[%dw 1.0
 %output application/java
 ---
-{
-}]]></dw:set-payload>
+payload]]></dw:set-variable>
             </dw:transform-message>
             <set-variable variableName="priceSKU" value="" doc:name="Price SKU Variable"/>
             <dw:transform-message doc:name="Transform Message">
