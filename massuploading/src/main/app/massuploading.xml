@@ -13,7 +13,7 @@ http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
-    <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="50000" doc:name="File"/>
+    <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="50000" doc:name="File" outputAppend="true"/>
     <validation:config name="Validation_Configuration" doc:name="Validation Configuration"/>
     <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication"/>
     <flow name="massuploadingFlow">
@@ -25,14 +25,14 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
 ---
 payload map ((payload01 , indexOfPayload01) -> {
 	Account__c: payload01.Account,
-	(Case_by_case_pricing__c: payload01."Case-by-case pricing" as :boolean) when (payload01."Case-by-case pricing" != null and payload01."Case-by-case pricing" != ""),
+	(Case_by_case_pricing__c: lower payload01."Case-by-case pricing" as :boolean) when (payload01."Case-by-case pricing" != null and payload01."Case-by-case pricing" != ""),
 	Customer_Price_Book__c: payload01."Customer Price Book",
 	Item_Description__c: payload01."Item Description",
 	(Price__c: payload01.Price as :string) when (payload01.Price != null and payload01.Price != ""),
 	Product_Family__c: payload01."Product Family",
 	Product__c: payload01.Product,
 	Profile_Price_Entry_Description__c: payload01."Profile Price Entry Description",
-	(Profile_Special_Pricing__c: payload01."Profile Special Pricing" as :boolean) when (payload01."Profile Special Pricing" != null and payload01."Profile Special Pricing" != ""), 
+	(Profile_Special_Pricing__c: lower payload01."Profile Special Pricing" as :boolean) when (payload01."Profile Special Pricing" != null and payload01."Profile Special Pricing" != ""), 
 	Stericycle_Location__c: payload01."Pricing Location",
 	UOM__c: payload01.UOM,
 	Waste_Profile__c: payload01."Waste Profile",
@@ -42,12 +42,12 @@ payload map ((payload01 , indexOfPayload01) -> {
 	(Subscription_Price__c: payload01."Subscription Price" as :string) when (payload01."Subscription Price" != null and payload01."Subscription Price" != ""),
 	(Minimum_Price__c: payload01."Minimum Price" as :string) when (payload01."Minimum Price" != null and payload01."Minimum Price" != ""),
 	(Minimum_Bill_Qty__c: payload01."Minimum Bill Qty" as :number) when (payload01."Minimum Bill Qty" != null and payload01."Minimum Bill Qty" != ""),
-	(Active__c: payload01.Active as :boolean) when (payload01.Active != null and payload01.Active != ""),
+	(Active__c: lower payload01.Active as :boolean) when (payload01.Active != null and payload01.Active != ""),
 	Pricing_Applied__c: payload01."Pricing Applied",
 	Minimum_Type__c: payload01."Minimum Type",
 	(Current_Threshold_Value__c: payload01."Current Threshold Value" as :number) when (payload01."Current Threshold Value" != null and payload01."Current Threshold Value" != ""),
 	Source__c: payload01.Source,
-	(Verified__c: payload01.Verified as :boolean) when (payload01.Verified != null and payload01.Verified != ""),
+	(Verified__c: lower payload01.Verified as :boolean) when (payload01.Verified != null and payload01.Verified != ""),
 	Expiration_Date__c: payload01."Expiration Date",
 	Segment__c: payload01.Segment,
 	Approved_Destination__c: payload01."Approved Destination",
@@ -78,6 +78,13 @@ payload]]></dw:set-payload>
         </dw:transform-message>
         <choice doc:name="Choice">
             <when expression="#[payload[0].success=='true']">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv escape="null"
+---
+flowVars.originalPayload]]></dw:set-payload>
+                </dw:transform-message>
+                <file:outbound-endpoint path="C:\Dev\steri\archive" outputPattern="#[message.inboundProperties.originalFilename]" connector-ref="File" responseTimeout="10000" doc:name="File"/>
                 <smtp:outbound-endpoint host="localhost" responseTimeout="10000" doc:name="SMTP"/>
                 <logger message="Email Notification Sent" level="INFO" doc:name="Logger"/>
             </when>
@@ -90,7 +97,13 @@ payload]]></dw:set-payload>
 flowVars.originalPayload]]></dw:set-payload>
                 </dw:transform-message>
                 <file:outbound-endpoint path="C:\Dev\steri\error" outputPattern="#[message.inboundProperties.originalFilename]" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+
             </otherwise>
         </choice>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+            <set-payload value="#[exception.cause.cause]" doc:name="Set Payload"/>
+            <object-to-string-transformer doc:name="Object to String"/>
+            <file:outbound-endpoint path="C:\Dev\steri\tmp" outputPattern="#[message.inboundProperties.originalFileName]" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+        </catch-exception-strategy>
     </flow>
 </mule>
