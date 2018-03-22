@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -9,9 +9,11 @@ http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/htt
 http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
-http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
     <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication"/>
     <http:request-config name="HTTP_Request_Configuration" host="192.81.100.75" port="50705" basePath="V1" doc:name="HTTP Request Configuration" protocol="HTTPS"/>
+    <file:connector name="File" autoDelete="true" outputAppend="true" streaming="true" validateConnections="true" doc:name="File"/>
     <flow name="service-ordersFlow">
         <poll doc:name="Poll">
             <fixed-frequency-scheduler frequency="10" timeUnit="MINUTES"/>
@@ -71,36 +73,55 @@ payload map ((lines , indexOfAccount) -> {
                     <http:header headerName="Accept" value="application/json"/>
                 </http:request-builder>
             </http:request>
-            <dw:transform-message doc:name="Transform Message">
-                <dw:set-payload><![CDATA[%dw 1.0
-%output application/java
----
-payload]]></dw:set-payload>
-            </dw:transform-message>
-            <foreach doc:name="For Each">
-                <choice doc:name="Choice">
-                    <when expression="#[payload.Message == 'success']">
-                        <logger message="Success" level="INFO" doc:name="Logger"/>
-                        <dw:transform-message doc:name="Transform Message">
-                            <dw:set-payload><![CDATA[%dw 1.0
+            <object-to-string-transformer doc:name="Object to String"/>
+            <logger message="Steriworks Response : #[payload]" level="INFO" doc:name="Logger"/>
+            <choice doc:name="Choice">
+                <when expression="#[message.inboundProperties['http.status'] == '201']">
+                    <logger message="Success" level="INFO" doc:name="Logger"/>
+                    <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
 [{
 	Name: flowVars.orders.Name,
 	Preview_Billing_System_Status__c: 'Created'
 }]]]></dw:set-payload>
-                        </dw:transform-message>
-                        <sfdc:update config-ref="Salesforce__Basic_Authentication" type="SVMXC__Service_Order__c" doc:name="Salesforce">
-                            <sfdc:objects ref="#[payload]"/>
-                        </sfdc:update>
-                        <logger message="Update Order Response  : #[payload]" level="INFO" doc:name="Logger"/>
-                    </when>
-                    <otherwise>
-                        <logger message="Failed" level="INFO" doc:name="Logger"/>
-                    </otherwise>
-                </choice>
-            </foreach>
+                    </dw:transform-message>
+                    <sfdc:update config-ref="Salesforce__Basic_Authentication" type="SVMXC__Service_Order__c" doc:name="Salesforce">
+                        <sfdc:objects ref="#[payload]"/>
+                    </sfdc:update>
+                    <logger message="Update Order Response  : #[payload]" level="INFO" doc:name="Logger"/>
+                    <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+[{
+	"Order Number": flowVars.orders.Name,
+	"Status" : "Success",
+	"Error": "No Error"
+}]]]></dw:set-payload>
+                    </dw:transform-message>
+                    <file:outbound-endpoint path="C:\Dev\steri\order" outputPattern="#[server.dateTime.format('yyMMddHHmmssZ')].csv" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="c0508b35-fa89-4e0c-8f44-b4e390ffdda8"/>
+                </when>
+                <otherwise>
+                    <logger message="Failed" level="INFO" doc:name="Logger"/>
+                </otherwise>
+            </choice>
+
         </foreach>
+        <catch-exception-strategy doc:name="Catch Exception Strategy">
+        <dw:transform-message doc:name="Transform Message">
+                        <dw:set-payload><![CDATA[%dw 1.0
+%output application/csv
+---
+[{
+	"Order Number": flowVars.orders.Name,
+	"Status" : "Error",
+	"Error": exception
+}]]]></dw:set-payload>
+                    </dw:transform-message>
+                    <file:outbound-endpoint path="C:\Dev\steri\order" outputPattern="#[server.dateTime.format('yyMMddHHmmssZ')].csv" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="c0508b35-fa89-4e0c-8f44-b4e390ffdda8"/>
+        </catch-exception-strategy>
     </flow>
     <sub-flow name="service-ordersSub_Flow_Manifest">
         <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Manifest_ID__c,Work_Order__c FROM Manifest__c" doc:name="Salesforce"/>
