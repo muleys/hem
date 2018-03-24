@@ -1,64 +1,77 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
 http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
 http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfdc/current/mule-sfdc.xsd
 http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
-http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
-    <file:connector name="File" autoDelete="true" streaming="true" validateConnections="true" pollingFrequency="10000" doc:name="File"/>
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+    <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="50000" doc:name="File"/>
     <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication"/>
     <flow name="priceincreaseFlow">
-        <file:inbound-endpoint path="C:\Dev\steri\price\in" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="80f3a8fd-55ae-4074-b601-97f6840162ec"/>
+        <file:inbound-endpoint path="C:\Dev\steri\price\in" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="80f3a8fd-55ae-4074-b601-97f6840162ec" pollingFrequency="50000"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
 payload]]></dw:set-payload>
         </dw:transform-message>
+
         <foreach doc:name="For Each">
-            <set-variable variableName="rowData" value="#[payload]" doc:name="Variable"/>
-            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id FROM Account WHERE Customer_Dynamics_AX_Number__c = '#[payload.&quot;Customer Number&quot;]'" doc:name="Salesforce"/>
-            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Account__c,Active__c,Approved_Destination__c,Available_for_Work_Orders__c,Case_by_case_pricing__c,Category__c,ConnectionReceivedId,ConnectionSentId,Contract_Id__c,Contract__c,CreatedById,CreatedDate,Current_Threshold_Value__c,Customer_Id__c,Customer_Price_Book__c,Description__c,Expiration_Date__c,Generator__c,Id,IsDeleted,Item_Description__c,LastActivityDate,LastModifiedById,LastModifiedDate,LastReferencedDate,LastViewedDate,Location_Price_Book__c,Minimum_Bill_Qty__c,Minimum_Price__c,Minimum_Type__c,Name,OwnerId,Preview_Calculate_By__c,Preview_ID__c,Preview_SKU__c,Preview_UOM__c,Price_Entry_Id__c,Price_Increase__c,Price_Source__c,Price__c,Pricing_Applied__c,Product_Description__c,Product_Family__c,Product_Name__c,Product__c,Profile_Price_Entry_Description__c,Profile_Special_Pricing__c,Programs__c,Project_Id__c,Quote_Proposal__c,RecordTypeId,SFDC_ID__c,SKU__c,SMAX_PS_Is_Broker_Formula__c,SVMX_PS_Profile_Process_Code__c,Segment__c,Source__c,Stericycle_Location__c,SubscriptionPriceEndDate__c,SubscriptionPriceStartDate__c,SubscriptionType__c,Subscription_Price__c,SystemModstamp,Territory__c,Threshold_Price__c,Threshold__c,Type__c,UOM__c,Verified__c,Waste_Profile__c,Zone__c FROM Price_Book_Entry__c LIMIT 1 " doc:name="Salesforce - Get SKU Records"/>
-            <dw:transform-message doc:name="Transform Message">
+            <dw:transform-message doc:name="Transform Message" metadata:id="0926ec9c-9f59-4621-8c44-7f6c031f029e">
+                <dw:set-variable variableName="rowData"><![CDATA[%dw 1.0
+%output application/java
+---
+payload]]></dw:set-variable>
+            </dw:transform-message>
+            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="SELECT Id FROM Account WHERE Name  = 'CALSONIC KANSEI NORTH AMERICA'  and Customer_Dynamics_AX_Number__c != '#[flowVars.rowData.'Customer Number']'" doc:name="Salesforce"/>
+            <json:object-to-json-transformer doc:name="Object to JSON"/>
+            <json:json-to-object-transformer returnClass="java.lang.Object" doc:name="JSON to Object"/>
+
+            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Account__c,Active__c,Approved_Destination__c,Available_for_Work_Orders__c,Case_by_case_pricing__c,Category__c,ConnectionReceivedId,ConnectionSentId,Contract_Id__c,Contract__c,CreatedById,CreatedDate,Current_Threshold_Value__c,Customer_Id__c,Customer_Price_Book__c,Description__c,Expiration_Date__c,Generator__c,Id,IsDeleted,Item_Description__c,LastActivityDate,LastModifiedById,LastModifiedDate,LastReferencedDate,LastViewedDate,Location_Price_Book__c,Minimum_Bill_Qty__c,Minimum_Price__c,Minimum_Type__c,Name,OwnerId,Preview_Calculate_By__c,Preview_ID__c,Preview_SKU__c,Preview_UOM__c,Price_Entry_Id__c,Price_Increase__c,Price_Source__c,Price__c,Pricing_Applied__c,Product_Description__c,Product_Family__c,Product_Name__c,Product__c,Profile_Price_Entry_Description__c,Profile_Special_Pricing__c,Programs__c,Project_Id__c,Quote_Proposal__c,RecordTypeId,SFDC_ID__c,SKU__c,SMAX_PS_Is_Broker_Formula__c,SVMX_PS_Profile_Process_Code__c,Segment__c,Source__c,Stericycle_Location__c,SubscriptionPriceEndDate__c,SubscriptionPriceStartDate__c,SubscriptionType__c,Subscription_Price__c,SystemModstamp,Territory__c,Threshold_Price__c,Threshold__c,Type__c,UOM__c,Verified__c,Waste_Profile__c,Zone__c FROM Price_Book_Entry__c where Account__c = '#[payload[0].Id]'" doc:name="Salesforce - Get SKU Records"/>
+            <json:object-to-json-transformer doc:name="Object to JSON"/>
+            <json:json-to-object-transformer returnClass="java.lang.Object" mimeType="application/java" doc:name="JSON to Object"/>
+            <dw:transform-message doc:name="Transform Message" metadata:id="e53fb25d-9377-466d-9bab-d59279be074c">
+                <dw:input-payload/>
                 <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
 payload map ((payload01 , indexOfPayload01) -> {
-(flowVars.rowData filter (payload01.Id == $.Id or payload01.Category__c == $."Categories Affected" or payload01.Category__c != $."Categories Excluded" or payload01.Product_c == $."Specific item affected" or payload01.Product_c == $."Specific item excluded" ) map ((payload02 , indexOfPayload00) -> {
+(flowVars.rowData filter (payload01.Category__c == $."Categories Affected" or payload01.Category__c != $."Categories Excluded" or payload01.Product_c == $."Specific item affected" or payload01.Product_c == $."Specific item excluded" ) map ((payload02 , indexOfPayload00) -> {
 	Id: payload01.Id,
-	IsDeleted: payload01.IsDeleted,
-	Name: payload01.Name,
-	CreatedDate: payload01.CreatedDate,
-	LastModifiedDate: payload01.LastModifiedDate,
-	SystemModstamp: payload01.SystemModstamp,
+	//IsDeleted: payload01.IsDeleted,
+	//Name: payload01.Name,
+	//CreatedDate: payload01.CreatedDate,
+	//LastModifiedDate: payload01.LastModifiedDate,
+	//SystemModstamp: payload01.SystemModstamp,
 	LastActivityDate: payload01.LastActivityDate,
-	LastViewedDate: payload01.LastViewedDate,
-	LastReferencedDate: payload01.LastReferencedDate,
-	Available_for_Work_Orders__c: payload01.Available_for_Work_Orders__c,
-	Case_by_case_pricing__c: payload01.Case_by_case_pricing__c,
-	Category__c: payload01.Category__c,
-	SMAX_PS_Is_Broker_Formula__c: payload01.SMAX_PS_Is_Broker_Formula__c,
-	Description__c: payload01.Description__c,
+	//LastViewedDate: payload01.LastViewedDate,
+	//LastReferencedDate: payload01.LastReferencedDate,
+	//Available_for_Work_Orders__c: payload01.Available_for_Work_Orders__c,
+	Case_by_case_pricing__c: payload01.Case_by_case_pricing__c as :boolean,
+	//Category__c: payload01.Category__c,
+	//SMAX_PS_Is_Broker_Formula__c: payload01.SMAX_PS_Is_Broker_Formula__c,
+	//Description__c: payload01.Description__c,
 	Item_Description__c: payload01.Item_Description__c,
 	Preview_Calculate_By__c: payload01.Preview_Calculate_By__c,
 	Preview_ID__c: payload01.Preview_ID__c,
 	Preview_UOM__c: payload01.Preview_UOM__c,
 	Price_Entry_Id__c: payload01.Price_Entry_Id__c,
-	Price_Source__c: payload01.Price_Source__c,
+	//Price_Source__c: payload01.Price_Source__c,
 	Price__c: payload01.Price__c,
 	Product_Description__c: payload01.Product_Description__c,
 	Product_Family__c: payload01.Product_Family__c,
-	Product_Name__c: payload01.Product_Name__c,
+	//Product_Name__c: payload01.Product_Name__c,
 	Profile_Price_Entry_Description__c: payload01.Profile_Price_Entry_Description__c,
-	Profile_Special_Pricing__c: payload01.Profile_Special_Pricing__c,
-	SFDC_ID__c: payload01.SFDC_ID__c,
-	Type__c: payload01.Type__c,
+	Profile_Special_Pricing__c: payload01.Profile_Special_Pricing__c as :boolean,
+	//SFDC_ID__c: payload01.SFDC_ID__c,
+	//Type__c: payload01.Type__c,
 	UOM__c: payload01.UOM__c,
-	Customer_Id__c: payload01.Customer_Id__c,
-	SVMX_PS_Profile_Process_Code__c: payload01.SVMX_PS_Profile_Process_Code__c,
+	//Customer_Id__c: payload01.Customer_Id__c,
+	//SVMX_PS_Profile_Process_Code__c: payload01.SVMX_PS_Profile_Process_Code__c,
 	Project_Id__c: payload01.Project_Id__c,
 	Contract_Id__c: payload01.Contract_Id__c,
 	Threshold_Price__c: payload01.Threshold_Price__c,
@@ -70,15 +83,15 @@ payload map ((payload01 , indexOfPayload01) -> {
 	Minimum_Type__c: payload01.Minimum_Type__c,
 	Current_Threshold_Value__c: payload01.Current_Threshold_Value__c,
 	Source__c: payload01.Source__c,
-	Verified__c: payload01.Verified__c,
-	Expiration_Date__c: payload01.Expiration_Date__c,
+	Verified__c: payload01.Verified__c as :boolean,
+	//Expiration_Date__c: payload01.Expiration_Date__c as :date {format : "MM/dd/YYYY"},
 	Segment__c: payload01.Segment__c,
-	SubscriptionPriceEndDate__c: payload01.SubscriptionPriceEndDate__c,
-	SKU__c: payload01.SKU__c,
+	//SubscriptionPriceEndDate__c: payload01.SubscriptionPriceEndDate__c as :date {format : "MM/dd/YYYY"},
+	//SKU__c: payload01.SKU__c,
 	Preview_SKU__c: payload01.Preview_SKU__c,
-	SubscriptionPriceStartDate__c: payload01.SubscriptionPriceStartDate__c,
+	//SubscriptionPriceStartDate__c: payload01.SubscriptionPriceStartDate__c as :date {format : "MM/dd/YYYY"},
 	SubscriptionType__c: payload01.SubscriptionType__c,
-	Zone__c: payload01.Zone__c,
+	//Zone__c: payload01.Zone__c,
 	Price_Increase__c: payload01.Price_Increase__c
 }))})]]></dw:set-payload>
                 <dw:set-variable variableName="sku"><![CDATA[%dw 1.0
@@ -97,37 +110,37 @@ payload]]></dw:set-variable>
 ---
 flowVars.sku map ((payload01 , indexOfPayload01) -> {
 	
-	Id: payload01.Id,
-	IsDeleted: payload01.IsDeleted,
-	Name: payload01.Name,
-	CreatedDate: payload01.CreatedDate,
-	LastModifiedDate: payload01.LastModifiedDate,
-	SystemModstamp: payload01.SystemModstamp,
-	LastActivityDate: payload01.LastActivityDate,
-	LastViewedDate: payload01.LastViewedDate,
-	LastReferencedDate: payload01.LastReferencedDate,
-	Available_for_Work_Orders__c: payload01.Available_for_Work_Orders__c,
-	Case_by_case_pricing__c: payload01.Case_by_case_pricing__c,
-	Category__c: payload01.Category__c,
-	SMAX_PS_Is_Broker_Formula__c: payload01.SMAX_PS_Is_Broker_Formula__c,
-	Description__c: payload01.Description__c,
+	//Id: payload01.Id,
+	//IsDeleted: payload01.IsDeleted,
+	//Name: payload01.Name,
+	//CreatedDate: payload01.CreatedDate,
+	//LastModifiedDate: payload01.LastModifiedDate,
+	//SystemModstamp: payload01.SystemModstamp,
+//LastActivityDate: payload01.LastActivityDate,
+	//LastViewedDate: payload01.LastViewedDate,
+	//LastReferencedDate: payload01.LastReferencedDate,
+	//Available_for_Work_Orders__c: payload01.Available_for_Work_Orders__c,
+	Case_by_case_pricing__c: payload01.Case_by_case_pricing__c as :boolean,
+	//Category__c: payload01.Category__c,
+	//SMAX_PS_Is_Broker_Formula__c: payload01.SMAX_PS_Is_Broker_Formula__c,
+	//Description__c: payload01.Description__c,
 	Item_Description__c: payload01.Item_Description__c,
 	Preview_Calculate_By__c: payload01.Preview_Calculate_By__c,
 	Preview_ID__c: payload01.Preview_ID__c,
 	Preview_UOM__c: payload01.Preview_UOM__c,
 	Price_Entry_Id__c: payload01.Price_Entry_Id__c,
-	Price_Source__c: payload01.Price_Source__c,
+	//Price_Source__c: payload01.Price_Source__c,
 	Price__c: payload01.Price__c,
 	Product_Description__c: payload01.Product_Description__c,
 	Product_Family__c: payload01.Product_Family__c,
-	Product_Name__c: payload01.Product_Name__c,
+	//Product_Name__c: payload01.Product_Name__c,
 	Profile_Price_Entry_Description__c: payload01.Profile_Price_Entry_Description__c,
-	Profile_Special_Pricing__c: payload01.Profile_Special_Pricing__c,
-	SFDC_ID__c: payload01.SFDC_ID__c,
-	Type__c: payload01.Type__c,
+	Profile_Special_Pricing__c: payload01.Profile_Special_Pricing__c as :boolean,
+	//SFDC_ID__c: payload01.SFDC_ID__c,
+	//Type__c: payload01.Type__c,
 	UOM__c: payload01.UOM__c,
-	Customer_Id__c: payload01.Customer_Id__c,
-	SVMX_PS_Profile_Process_Code__c: payload01.SVMX_PS_Profile_Process_Code__c,
+	//Customer_Id__c: payload01.Customer_Id__c,
+	//SVMX_PS_Profile_Process_Code__c: payload01.SVMX_PS_Profile_Process_Code__c,
 	Project_Id__c: payload01.Project_Id__c,
 	Contract_Id__c: payload01.Contract_Id__c,
 	Threshold_Price__c: payload01.Threshold_Price__c,
@@ -139,15 +152,15 @@ flowVars.sku map ((payload01 , indexOfPayload01) -> {
 	Minimum_Type__c: payload01.Minimum_Type__c,
 	Current_Threshold_Value__c: payload01.Current_Threshold_Value__c,
 	Source__c: "Price Increase",
-	Verified__c: payload01.Verified__c,
-	Expiration_Date__c: payload01.Expiration_Date__c,
+	Verified__c: payload01.Verified__c as :boolean,
+	//Expiration_Date__c: payload01.Expiration_Date__c,
 	Segment__c: payload01.Segment__c,
-	SubscriptionPriceEndDate__c: payload01.SubscriptionPriceEndDate__c,
-	SKU__c: payload01.SKU__c,
+	//SubscriptionPriceEndDate__c: payload01.SubscriptionPriceEndDate__c,
+	//SKU__c: payload01.SKU__c,
 	Preview_SKU__c: payload01.Preview_SKU__c,
-	SubscriptionPriceStartDate__c: payload01.SubscriptionPriceStartDate__c,
+	//SubscriptionPriceStartDate__c: payload01.SubscriptionPriceStartDate__c,
 	SubscriptionType__c: payload01.SubscriptionType__c,
-	Zone__c: payload01.Zone__c,
+	//Zone__c: payload01.Zone__c,
 	Price_Increase__c: flowVars.rowData.Price_Increase__c
 })]]></dw:set-payload>
             </dw:transform-message>
@@ -155,7 +168,7 @@ flowVars.sku map ((payload01 , indexOfPayload01) -> {
                 <sfdc:objects ref="#[payload]"/>
             </sfdc:create>
             <choice doc:name="Choice">
-                <when expression="">
+                <when expression="#[payload.success == 'true']">
                     <logger level="INFO" doc:name="Logger -Success"/>
                 </when>
                 <otherwise>
