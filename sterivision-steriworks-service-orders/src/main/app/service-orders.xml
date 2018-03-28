@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:file="http://www.mulesoft.org/schema/mule/file" xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -10,9 +10,14 @@ http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd
-http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd">
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
     <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication"/>
-    <http:request-config name="HTTP_Request_Configuration" host="192.81.100.75" port="50705" basePath="V1" doc:name="HTTP Request Configuration" protocol="HTTPS"/>
+    <http:request-config name="HTTP_Request_Configuration" host="192.81.100.75" port="50705" basePath="V1" doc:name="HTTP Request Configuration" protocol="HTTPS" connectionIdleTimeout="180000">
+        <tls:context>
+            <tls:trust-store insecure="true"/>
+        </tls:context>
+    </http:request-config>
     <file:connector name="File" autoDelete="true" outputAppend="true" streaming="true" validateConnections="true" doc:name="File"/>
     <flow name="service-ordersFlow">
         <poll doc:name="Poll">
@@ -40,7 +45,8 @@ payload]]></dw:set-variable>
 ---
 payload map ((lines , indexOfAccount) -> {
 	
-	"CustomerNumber": flowVars.account[0].Customer_Dynamics_AX_Number__c default '00106315',
+	//"CustomerNumber": flowVars.account[0].Customer_Dynamics_AX_Number__c default '00106315',
+    "CustomerNumber":'00106315',
     "ExternalSiteNumber": flowVars.orders[0].Generator_Account__c default '123456',
     //"PONumber": "po" default '123456',
     "ExternalServiceOrderNumber": "eson011" default 'ES-123456',
@@ -64,7 +70,7 @@ payload map ((lines , indexOfAccount) -> {
 })]]></dw:set-payload>
             </dw:transform-message>
             <logger message="Request to Steriworks :  #[payload]" level="INFO" doc:name="Logger"/>
-            <http:request config-ref="HTTP_Request_Configuration" path="AddServiceOrders" method="POST" doc:name="HTTP">
+           <http:request config-ref="HTTP_Request_Configuration" path="AddServiceOrders" method="POST" doc:name=" HTTP Steriworks">
                 <http:request-builder>
                     <http:header headerName="Content-Type" value="application/json"/>
                     <http:header headerName="X-SDS-Culture" value="en-US"/>
@@ -72,18 +78,20 @@ payload map ((lines , indexOfAccount) -> {
                     <http:header headerName="X-SDS-CompanyCode" value="910"/>
                     <http:header headerName="Accept" value="application/json"/>
                 </http:request-builder>
-            </http:request>
+            </http:request> 
             <object-to-string-transformer doc:name="Object to String"/>
             <logger message="Steriworks Response : #[payload]" level="INFO" doc:name="Logger"/>
             <choice doc:name="Choice">
-                <when expression="#[message.inboundProperties['http.status'] == '201']">
+               <when expression="#[message.inboundProperties['http.status'] == '201']">
+              
                     <logger message="Success" level="INFO" doc:name="Logger"/>
                     <dw:transform-message doc:name="Transform Message">
                         <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
 ---
 [{
-	Name: flowVars.orders.Name,
+	Id: flowVars.orders[0].Id,
+	Ready_to_be_Invoiced__c: false,
 	Preview_Billing_System_Status__c: 'Created'
 }]]]></dw:set-payload>
                     </dw:transform-message>
@@ -96,12 +104,12 @@ payload map ((lines , indexOfAccount) -> {
 %output application/csv
 ---
 [{
-	"Order Number": flowVars.orders.Name,
+	"Order Number": flowVars.orders[0].Name,
 	"Status" : "Success",
 	"Error": "No Error"
 }]]]></dw:set-payload>
                     </dw:transform-message>
-                    <file:outbound-endpoint path="C:\Dev\steri\order" outputPattern="#[server.dateTime.format('yyMMddHHmmssZ')].csv" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="c0508b35-fa89-4e0c-8f44-b4e390ffdda8"/>
+                    <file:outbound-endpoint path="C:\Users\ADMIN\Desktop\mass\serviceOrders\status" outputPattern="#[server.dateTime.format('yyMMddHHmmssZ')].csv" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="c0508b35-fa89-4e0c-8f44-b4e390ffdda8"/>
                 </when>
                 <otherwise>
                     <logger message="Failed" level="INFO" doc:name="Logger"/>
@@ -120,7 +128,7 @@ payload map ((lines , indexOfAccount) -> {
 	"Error": exception
 }]]]></dw:set-payload>
                     </dw:transform-message>
-                    <file:outbound-endpoint path="C:\Dev\steri\order" outputPattern="#[server.dateTime.format('yyMMddHHmmssZ')].csv" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="c0508b35-fa89-4e0c-8f44-b4e390ffdda8"/>
+                    <file:outbound-endpoint path="C:\Users\ADMIN\Desktop\mass\serviceOrders\status" outputPattern="#[server.dateTime.format('yyMMddHHmmssZ')].csv" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="c0508b35-fa89-4e0c-8f44-b4e390ffdda8"/>
         </catch-exception-strategy>
     </flow>
     <sub-flow name="service-ordersSub_Flow_Manifest">
