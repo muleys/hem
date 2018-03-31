@@ -30,7 +30,37 @@ payload]]></dw:set-variable>
             <sfdc:query config-ref="Salesforce__Basic_Authentication" query="SELECT Id, ParentId  FROM Account WHERE Name = '#[flowVars.rowData.'Account Name']'  and Customer_Dynamics_AX_Number__c = '#[flowVars.rowData.'Customer Number']'" doc:name="Salesforce"/>
             <json:object-to-json-transformer doc:name="Object to JSON"/>
             <json:json-to-object-transformer returnClass="java.lang.Object" doc:name="JSON to Object"/>
-            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Account__c,Active__c,Approved_Destination__c,Available_for_Work_Orders__c,Case_by_case_pricing__c,Category__c,ConnectionReceivedId,ConnectionSentId,Contract_Id__c,Contract__c,CreatedById,CreatedDate,Current_Threshold_Value__c,Customer_Id__c,Customer_Price_Book__c,Description__c,Expiration_Date__c,Generator__c,Id,IsDeleted,Item_Description__c,LastActivityDate,LastModifiedById,LastModifiedDate,LastReferencedDate,LastViewedDate,Location_Price_Book__c,Minimum_Bill_Qty__c,Minimum_Price__c,Minimum_Type__c,Name,OwnerId,Preview_Calculate_By__c,Preview_ID__c,Preview_SKU__c,Preview_UOM__c,Price_Entry_Id__c,Price_Increase__c,Price_Source__c,Price__c,Pricing_Applied__c,Product_Description__c,Product_Family__c,Product_Name__c,Product__c,Profile_Price_Entry_Description__c,Profile_Special_Pricing__c,Programs__c,Project_Id__c,Quote_Proposal__c,RecordTypeId,SFDC_ID__c,SKU__c,SMAX_PS_Is_Broker_Formula__c,SVMX_PS_Profile_Process_Code__c,Segment__c,Source__c,Stericycle_Location__c,SubscriptionPriceEndDate__c,SubscriptionPriceStartDate__c,SubscriptionType__c,Subscription_Price__c,SystemModstamp,Territory__c,Threshold_Price__c,Threshold__c,Type__c,UOM__c,Verified__c,Waste_Profile__c,Zone__c FROM Price_Book_Entry__c where (Account__c = '#[payload[0].ParentId]' and Active__c = true and Category__c = '#[flowVars.rowData.'Categories Affected']' and Category__c != '#[flowVars.rowData.'Categories Excluded']' and Product_Name__c = '#[flowVars.rowData.'Specific item affected']' and Product_Name__c != '#[flowVars.rowData.'Specific item excluded']')" doc:name="Salesforce - Get SKU Records"/>
+            <expression-component doc:name="Expression"><![CDATA[//flowVars.rowData = new java.util.HashMap();
+//flowVars.rowData.put('Categories Affected', "c1");
+//flowVars.rowData.put('Categories Excluded', "c2");
+//flowVars.rowData.put('Specific item affected', "p1");
+//flowVars.rowData.put('Specific item excluded', "p2");
+flowVars.condition = "";
+if (flowVars.rowData.get('Categories Affected')  != null and  flowVars.rowData.get('Categories Affected') != '') {
+	flowVars.condition =  flowVars.condition+ " and Category__c ='" +flowVars.rowData.get('Categories Affected')+ "'";
+	if (flowVars.rowData.get('Categories Excluded') != null and flowVars.rowData.get('Categories Excluded') != '') {
+		flowVars.condition =  flowVars.condition+ " or Category__c !='" +flowVars.rowData.get('Categories Excluded')+ "'";
+	 }
+}
+else {
+if (flowVars.rowData.get('Categories Excluded') != null and flowVars.rowData.get('Categories Excluded') != '') {
+		flowVars.condition =  flowVars.condition+ " and Category__c !='" +flowVars.rowData.get('Categories Excluded')+ "'";
+}
+}
+
+if (flowVars.rowData.get('Specific item affected')  != null and flowVars.rowData.get('Specific item affected')  != '') {
+	flowVars.condition =  flowVars.condition+ " and Product_Name__c ='" +flowVars.rowData.get('Specific item affected')+ "'";
+	if (flowVars.rowData.get('Specific item excluded') != null and flowVars.rowData.get('Specific item excluded') != '') {
+		flowVars.condition =  flowVars.condition+ " or Product_Name__c !='" +flowVars.rowData.get('Specific item excluded')+ "'";
+	 }
+}
+else {
+if (flowVars.rowData.get('Specific item excluded') != null and flowVars.rowData.get('Specific item excluded') != '') {
+		flowVars.condition =  flowVars.condition+ " and Product_Name__c !='" +flowVars.rowData.get('Specific item excluded')+ "'";
+}
+}]]></expression-component>
+            <logger message="Query Condition : #[flowVars.condition]" level="INFO" doc:name="Logger"/>
+            <sfdc:query config-ref="Salesforce__Basic_Authentication" query="SELECT Account__c,Active__c,Approved_Destination__c,Available_for_Work_Orders__c,Case_by_case_pricing__c,Category__c,ConnectionReceivedId,ConnectionSentId,Contract_Id__c,Contract__c,CreatedById,CreatedDate,Current_Threshold_Value__c,Customer_Id__c,Customer_Price_Book__c,Description__c,Expiration_Date__c,Generator__c,Id,IsDeleted,Item_Description__c,LastActivityDate,LastModifiedById,LastModifiedDate,LastReferencedDate,LastViewedDate,Location_Price_Book__c,Minimum_Bill_Qty__c,Minimum_Price__c,Minimum_Type__c,Name,OwnerId,Preview_Calculate_By__c,Preview_ID__c,Preview_SKU__c,Preview_UOM__c,Price_Entry_Id__c,Price_Increase__c,Price_Source__c,Price__c,Pricing_Applied__c,Product_Description__c,Product_Family__c,Product_Name__c,Product__c,Profile_Price_Entry_Description__c,Profile_Special_Pricing__c,Programs__c,Project_Id__c,Quote_Proposal__c,RecordTypeId,SFDC_ID__c,SKU__c,SMAX_PS_Is_Broker_Formula__c,SVMX_PS_Profile_Process_Code__c,Segment__c,Source__c,Stericycle_Location__c,SubscriptionPriceEndDate__c,SubscriptionPriceStartDate__c,SubscriptionType__c,Subscription_Price__c,SystemModstamp,Territory__c,Threshold_Price__c,Threshold__c,Type__c,UOM__c,Verified__c,Waste_Profile__c,Zone__c FROM Price_Book_Entry__c where (Account__c = '#[payload[0].ParentId]' and Active__c = true  #[flowVars.condition])" doc:name="Salesforce - Get SKU Records"/>
             <json:object-to-json-transformer doc:name="Object to JSON"/>
             <json:json-to-object-transformer returnClass="java.lang.Object" mimeType="application/java" doc:name="JSON to Object"/>
             <dw:transform-message doc:name="Transform Message" metadata:id="e53fb25d-9377-466d-9bab-d59279be074c">
