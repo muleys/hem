@@ -33,10 +33,10 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
 payload]]></dw:set-variable>
         </dw:transform-message>
         <logger message="Orders fetched from SFDC  : #[flowVars.orders[0].Name]" level="INFO" doc:name="Logger"/>
-        <enricher target="#[flowVars.account]" doc:name="Message Enricher">
-            <flow-ref name="service-ordersSub_Flow_Account" doc:name="service-ordersSub_Flow_Account"/>
-        </enricher>
         <foreach collection="#[flowVars.orders]" doc:name="For Each">
+            <enricher target="#[flowVars.account]" doc:name="Message Enricher">
+                <flow-ref name="service-ordersSub_Flow_Account" doc:name="service-ordersSub_Flow_Account"/>
+            </enricher>
             <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Bill_Qty__c,Bill_UOM__c,Container_Qty__c,Id,Item_Description__c,Name,Preview_Billing_System_Response__c,Preview_Billing_System_Status__c,Preview_Last_Modified__c,Price_Book_Entry__c,Processed_As_Item__c,SVMXC__Actual_Price2__c,Total_Quantity_11__c FROM SVMXC__Service_Order_Line__c WHERE SMAX_PS_Work_Order_Number__c = '#[payload.Name]'" doc:name="Salesforce"/>
             <set-payload value="#[org.apache.commons.collections.IteratorUtils.toList(payload)]" doc:name="Set Payload"/>
             <dw:transform-message doc:name="Transform Message" metadata:id="b304c2e4-e5b0-4b09-8e30-5f22b9afac91">
@@ -91,13 +91,14 @@ payload map ((lines , indexOfAccount) -> {
 ---
 [{
 	Id: flowVars.orders[0].Id,
-	Ready_to_be_Invoiced__c: false,
+	// Billing_Ready_For_Steriworks__c : false,
 	Preview_Billing_System_Status__c: 'Created'
 }]]]></dw:set-payload>
                     </dw:transform-message>
                     <sfdc:update config-ref="Salesforce__Basic_Authentication" type="SVMXC__Service_Order__c" doc:name="Salesforce">
                         <sfdc:objects ref="#[payload]"/>
                     </sfdc:update>
+
                     <logger message="Update Order Response  : #[payload]" level="INFO" doc:name="Logger"/>
                     <dw:transform-message doc:name="Transform Message">
                         <dw:set-payload><![CDATA[%dw 1.0
@@ -149,6 +150,8 @@ payload map ((lines , indexOfAccount) -> {
         <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Description__c,Price__c,Product_Family__c,Product_Name__c FROM Price_Book_Entry__c" doc:name="Salesforce"/>
     </sub-flow>
     <sub-flow name="service-ordersSub_Flow_Account">
-        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Dynamics_AX_Number__c,E_I__c,Id FROM Account WHERE Customer_Dynamics_AX_Number__c &lt;&gt; '' LIMIT 1" doc:name="Salesforce"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Dynamics_AX_Number__c,E_I__c,Id,Name FROM Account WHERE Name = '#[payload.Customer_Account__c]" doc:name="Salesforce"/>
+
+
     </sub-flow>
 </mule>
