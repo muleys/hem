@@ -12,7 +12,7 @@ http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/jso
     <file:connector name="File" autoDelete="false" streaming="true" validateConnections="true" pollingFrequency="50000" doc:name="File"/>
     <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication" disableSessionInvalidation="true"/>
     <flow name="priceincreaseFlow">
-        <file:inbound-endpoint path="C:\Dev\steri\price\in" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="80f3a8fd-55ae-4074-b601-97f6840162ec" pollingFrequency="50000"/>
+        <file:inbound-endpoint path="C:\Users\Hemanth.Gadde\Desktop\Mass\Price inc\Inbound" connector-ref="File" responseTimeout="10000" doc:name="File" metadata:id="80f3a8fd-55ae-4074-b601-97f6840162ec" pollingFrequency="50000"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
 %output application/java
@@ -47,7 +47,6 @@ if (flowVars.rowData.get('Categories Excluded') != null and flowVars.rowData.get
 		flowVars.condition =  flowVars.condition+ " and Category__c !='" +flowVars.rowData.get('Categories Excluded')+ "'";
 }
 }
-
 if (flowVars.rowData.get('Specific item affected')  != null and flowVars.rowData.get('Specific item affected')  != '') {
 	flowVars.condition =  flowVars.condition+ " and Product_Name__c ='" +flowVars.rowData.get('Specific item affected')+ "'";
 	if (flowVars.rowData.get('Specific item excluded') != null and flowVars.rowData.get('Specific item excluded') != '') {
@@ -153,7 +152,7 @@ flowVars.sku map ((payload01 , indexOfPayload01) -> {
 	Preview_UOM__c: payload01.Preview_UOM__c,
 	Price_Entry_Id__c: payload01.Price_Entry_Id__c,
 	// Price_Source__c: payload01.Price_Source__c,
-	Price__c: payload01.Price__c,
+	Price__c: payload01.Price__c + ((flowVars.priceIncrease*payload01.Price__c)/100) as :number ,
 	Product_Description__c: payload01.Product_Description__c,
 	Product_Family__c: payload01.Product_Family__c,
 	Product__c: payload01.Product__c,
@@ -183,7 +182,7 @@ flowVars.sku map ((payload01 , indexOfPayload01) -> {
 	// SubscriptionPriceStartDate__c: payload01.SubscriptionPriceStartDate__c,
 	SubscriptionType__c: payload01.SubscriptionType__c,
 	// Zone__c: payload01.Zone__c,
-	Price_Increase__c: flowVars.priceIncrease
+	Price_Increase__c: flowVars.priceIncrease 
 })]]></dw:set-payload>
             </dw:transform-message>
             <sfdc:create config-ref="Salesforce__Basic_Authentication" doc:name="Salesforce Create New Active SKU" type="Price_Book_Entry__c">
