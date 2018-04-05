@@ -1,0 +1,21 @@
+#%RAML 1.0
+title: Test Security
+version: 1.0
+baseUri: https://testsecurity.cloudhub.io:443/api
+
+/invoices:
+  description: Steriworks calls this api to sync invoices with Sterivision
+  post:
+      description: |
+        Steriworks posts the invoices.
+      body:
+        application/json:
+          schema:  !include schema.json
+          example: !include sample.json
+      responses:
+        200:
+          description: Success
+          body:
+            application/json:
+              
+              example: "{'status'  : 'success'}"    
