@@ -30,10 +30,10 @@ payload map ((payload01 , indexOfPayload01) -> {
 	Item_Description__c: payload01."Item Description",
 	(Price__c: payload01.Price as :string) when (payload01.Price != null and payload01.Price != ""),
 	Product_Family__c: payload01."Product Family",
-	Product__c: payload01.Product,
+	Product__c: lookup("massuploadingFlow2", payload01.Product)[0].Id,
 	Profile_Price_Entry_Description__c: payload01."Profile Price Entry Description",
 	(Profile_Special_Pricing__c: payload01."Profile Special Pricing" as :boolean) when (payload01."Profile Special Pricing" != null and payload01."Profile Special Pricing" != ""), 
-	Stericycle_Location__c: payload01."Pricing Location",
+	Stericycle_Location__c: lookup("massuploadingFlow1", payload01."Pricing Location")[0].Id,
 	UOM__c: payload01.UOM,
 	Waste_Profile__c: payload01."Waste Profile",
 	Project_Id__c: payload01."Project Id",
@@ -55,10 +55,12 @@ payload map ((payload01 , indexOfPayload01) -> {
 (SubscriptionPriceStartDate__c: (payload01."Subscription Price Start Date" ++ 'T00:00:00.000Z') as :datetime {format: "MM/dd/yyyy'T'HH:mm:ss.SSSX"}) when (payload01."Subscription Price Start Date" != null and payload01."Subscription Price Start Date" != ""),
 	SubscriptionType__c: payload01."Subscription Type",
 	Contract__c: payload01.Contract,
-	Waste_Profile__c: payload01."Waste Profile",
+	
 	Programs__c: payload01.Programs,
 	Source__c:"Mass Upload",
-	Threshold__c: payload01.Threshold
+	Threshold__c: payload01.Threshold,
+	Waste_Profile__c: payload01."Profile Dimension",
+	Zone__c: payload01."Zone dimension"
 })]]></dw:set-payload>
         </dw:transform-message>
         <set-variable variableName="originalPayload" value="#[payload]" doc:name="Variable"/>
@@ -107,5 +109,11 @@ flowVars.originalPayload]]></dw:set-payload>
             <object-to-string-transformer doc:name="Object to String"/>
             <file:outbound-endpoint path="C:\Users\Hemanth.Gadde\Desktop\Mass\Mass Upload\Error Data" outputPattern="#[message.inboundProperties.OriginalFileName]" connector-ref="File" responseTimeout="10000" doc:name="File"/>
         </catch-exception-strategy>
+    </flow>
+    <flow name="massuploadingFlow1">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id FROM ESDLocation__c where Location_Code__c = '#[payload]'" doc:name="Salesforce"/>
+    </flow>
+    <flow name="massuploadingFlow2">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Id FROM Product2 WHERE ProductCode = '#[payload]'" doc:name="Salesforce"/>
     </flow>
 </mule>
