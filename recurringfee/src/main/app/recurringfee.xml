@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<mule xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+<mule xmlns:json="http://www.mulesoft.org/schema/mule/json" xmlns:metadata="http://www.mulesoft.org/schema/mule/metadata" xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:tracking="http://www.mulesoft.org/schema/mule/ee/tracking" xmlns:sfdc="http://www.mulesoft.org/schema/mule/sfdc" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
 	xmlns:spring="http://www.springframework.org/schema/beans" 
 	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
@@ -9,8 +9,9 @@ http://www.mulesoft.org/schema/mule/sfdc http://www.mulesoft.org/schema/mule/sfd
 http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd
 http://www.mulesoft.org/schema/mule/ee/tracking http://www.mulesoft.org/schema/mule/ee/tracking/current/mule-tracking-ee.xsd
 http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
-http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd">
-   <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication"/>
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/json http://www.mulesoft.org/schema/mule/json/current/mule-json.xsd">
+   <sfdc:config name="Salesforce__Basic_Authentication" username="hemanth.gadde@stericycle.com.sfdcdev1" password="Indiaindia9" url="https://test.salesforce.com/services/Soap/u/37.0" doc:name="Salesforce: Basic Authentication" disableSessionInvalidation="true"/>
     <http:request-config name="HTTP_Request_Configuration" protocol="HTTPS" host="192.81.100.75" port="50705" basePath="V1" connectionIdleTimeout="1800000" doc:name="HTTP Request Configuration">
         <tls:context>
             <tls:trust-store insecure="true"/>
@@ -18,10 +19,10 @@ http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/
     </http:request-config>
     <flow name="recfeeFlow">
         <poll doc:name="Poll">
-            <fixed-frequency-scheduler frequency="10" timeUnit="MINUTES"/>
+            <fixed-frequency-scheduler frequency="10" timeUnit="SECONDS"/>
             <logger level="INFO" doc:name="Logger"/>
         </poll>
-        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Container_Weight_Per_Stop__c,Container_Weight_Per_Year__c,Containers_Per_Stop__c,Containers_Per_Year__c,CreatedDate,Customer_Account__c,EI_Fee__c,End_Date__c,Generator_Account__c,Id,LastModifiedById,LastModifiedDate,LastReferencedDate,LastViewedDate,Last_Bill_Date__c,Monthly_Fee__c,Name,Next_Bill_Date__c,Number_of_Stops_Overage__c,Overage_Price_Per_Container__c,Overage_Price_Per_Stop__c,Price__c,Product__c,Receiving_Price__c,Receiving_Quantity__c,Send_to_Steriworks__c,Setup_in_Steriworks__c,Start_Date__c,Stops_Per_Year__c,Term__c,Type__c,Waste_Program_Type__c,Waste_Program__c FROM Recurring_Fee__c WHERE Send_to_Steriworks__c = true" doc:name="Salesforce"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Container_Weight_Per_Stop__c,Container_Weight_Per_Year__c,Containers_Per_Stop__c,Containers_Per_Year__c,Contract__c,Customer_Account__c,EI_Fee__c,End_Date__c,Generator_Account__c,Id,IsRecurringFee__c,Last_Bill_Date__c,Monthly_Fee__c,Name,Next_Bill_Date__c,Number_of_Stops_Overage__c,Overage_Price_Per_Container__c,Overage_Price_Per_Stop__c,Price__c,Product__c,Send_to_SteriWorks__c,Setup_in_Steriworks__c,Start_Date__c,Stops_per_Year__c,Tax_Category_Code__c,Term__c,Type__c,Waste_Program_Type__c,Waste_Program__c FROM Subscription_Price__c where Send_to_SteriWorks__c = true" doc:name="Salesforce"/>
         <set-payload value="#[org.apache.commons.collections.IteratorUtils.toList(payload)]" doc:name="Set Payload"/>
         <dw:transform-message doc:name="Transform Message">
             <dw:set-payload><![CDATA[%dw 1.0
@@ -37,6 +38,9 @@ payload]]></dw:set-variable>
             <enricher target="#[flowVars.account]" doc:name="Message Enricher">
                 <flow-ref name="SubFlowAccount" doc:name="SubFlowAccount"/>
             </enricher>
+            <enricher target="#[flowVars.product]" doc:name="Message Enricher">
+                <flow-ref name="recfeeProduct" doc:name="Flow Reference"/>
+            </enricher>
             <choice doc:name="Choice">
                 <when expression="#[payload.Send_to_Steriworks__c == 'true' and payload.Setup_in_Steriworks__c == 'true']">
                     <dw:transform-message doc:name="Transform Message">
@@ -45,52 +49,34 @@ payload]]></dw:set-variable>
 ---
 payload map ((lines , indexOfAccount) -> {
 	
-	"contractId":'123',
-	//"CustomerNumber": flowVars.account[0].Customer_Dynamics_AX_Number__c default '00106315',
-    "CustomerNumber":'00106153',
-    "ExternalSiteNumber": flowVars.orders[0].Generator_Account__c default '91110',
-    "EffectivePriceDate" :flowVars.orders[0].Start_Date__c default '12-03-04' ,
-  //  "SvcCode" : flowVars.orders[0].Product__c,
-    "SvcCode":'0001AC',
-    "BillAheadCycles" :flowVars.orders[0].Term__c default '1' ,
-   "WasteProgramType": flowVars.orders[0].Waste_Program_Type__c default 'RMW',
-     
-     "Description": "test",
-     "TaxCategory" : "RECYCLE",
+"contractId":flowVars.orders[0].Contract__c,
+//"CustomerNumber": flowVars.account[0].Customer_Dynamics_AX_Number__c default '00106315',
+"CustomerNumber":'00106153',
+"ExternalSiteNumber": flowVars.orders[0].Generator_Account__c,
+"EffectivePriceDate" :flowVars.orders[0].Start_Date__c,
+ 
+  //its an ID  and for descrption use product description
+  "SvcCode":lookup('recfeeProduct',flowVars.orders[0].Product__c)[0].Name,
+"BillAheadCycles" :flowVars.orders[0].Term__c,
+   "WasteProgramType": flowVars.orders[0].Waste_Program_Type__c,
+//whats this........ 
+ "Description": lookup('recfeeProduct',flowVars.orders[0].Product__c)[0].Description,
+ "TaxCategory" : flowVars.orders[0].Tax_Category_Code__c,
    
-   "Price" : flowVars.orders[0].Price__c default '10',
-    "TerminateDate" : flowVars.orders[0].End_Date__c default '2099-05-17',
-     "EnergyAndInsurance": flowVars.orders[0].EI_Fee__c default '11',
-     "StopsPerYear":flowVars.orders[0].Stops_Per_Year__c,
-     "ContainersPerWasteStreamPerYear":flowVars.orders[0].Containers_Per_Year__c,
-     "ContainersPerWasteStreamPerStop":flowVars.orders[0].Containers_Per_Stop__c,
-     "WeightPerWasteStreamPerYear":flowVars.orders[0].Container_Weight_Per_Year__c,
-     "WeightPerWasteStreamPerStop":flowVars.orders[0].Container_Weight_Per_Stop__c,
-     "OverageContainersPrice":flowVars.orders[0].Overage_Price_Per_Container__c,
-     "OverageWeightPrice":"",
-     "OverageStopPrice":flowVars.orders[0].Overage_Price_Per_Stop__c
-    
-    
-    //"PONumber": "po" default '123456',
-    //"ExternalServiceOrderNumber": "eson011" default 'ES-123456',
-    //"ServiceOrderNumber": flowVars.orders[0].Name default 'W-123456',
-    //"ExternalServiceOrderLineNumber": "esoln011" default 'WL-123456',
-    //"ServiceDocumentNumber": "sdn011" default '123456',
-    //"WasteProfileNumber": "wpn011" default '123456',
-    //"ServiceDate": flowVars.orders[0].SVMXC__Completed_Date_Time__c default '12/03/04',
-    //"SvcCode": lines.Processed_As_Item__c default '123456',
-   // "Description": lines.Item_Description__c default 'test',
-   
-   
-    //"TaxCategory" : "RECYCLE",
-    //"UnitPrice": lines.SVMXC__Actual_Price2__c default '120',
-    //"MixedWasteFlag": 0,
-    //"ShippingQuantity": lines.Total_Quantity_11__c default '9',
-    //"TaxCategory": ".",
-    //"BilledQuantity": lines.Bill_Qty__c default '9',
-    //"BilledUOM": lines.Bill_UOM__c default 'LBS',
-    //"ShippingWeight": lines.Total_Quantity_11__c default '9',
-    //"LocationDimension": flowVars.orders[0].Revenue_Location__c default '9408',
+   "Price" : flowVars.orders[0].Price__c,
+"TerminateDate" : flowVars.orders[0].End_Date__c,
+ "EnergyAndInsurance": flowVars.orders[0].EI_Fee__c,
+ "StopsPerYear":flowVars.orders[0].Stops_Per_Year__c,
+ "ContainersPerWasteStreamPerYear":flowVars.orders[0].Containers_Per_Year__c,
+ "ContainersPerWasteStreamPerStop":flowVars.orders[0].Containers_Per_Stop__c,
+ "WeightPerWasteStreamPerYear":flowVars.orders[0].Container_Weight_Per_Year__c,
+ "WeightPerWasteStreamPerStop":flowVars.orders[0].Container_Weight_Per_Stop__c,
+ "OverageContainersPrice":flowVars.orders[0].Overage_Price_Per_Container__c,
+ "OverageWeightPrice":"",
+ "OverageStopPrice":flowVars.orders[0].Overage_Price_Per_Stop__c
+
+
+
 	
 })]]></dw:set-payload>
                     </dw:transform-message>
@@ -110,56 +96,38 @@ payload map ((lines , indexOfAccount) -> {
                         <dw:set-payload><![CDATA[%dw 1.0
 %output application/json
 ---
-payload map ((lines , indexOfAccount) -> {
+ {
 	
-	"contractId":'123',
-	//"CustomerNumber": flowVars.account[0].Customer_Dynamics_AX_Number__c default '00106315',
-    "CustomerNumber":'00106153',
-    "ExternalSiteNumber": flowVars.orders[0].Generator_Account__c default '91110',
-    "EffectivePriceDate" :flowVars.orders[0].Start_Date__c default '12-03-04' ,
-  //  "SvcCode" : flowVars.orders[0].Product__c,
-    "SvcCode":'0001AC',
-    "BillAheadCycles" :flowVars.orders[0].Term__c default '1' ,
-   "WasteProgramType": flowVars.orders[0].Waste_Program_Type__c default 'RMW',
-     
-     "Description": "test",
-     "TaxCategory" : "RECYCLE",
+"contractId":payload.Contract__c,
+//"CustomerNumber": payload.Customer_Dynamics_AX_Number__c default '00106315',
+"CustomerNumber":'00106153',
+"ExternalSiteNumber": payload.Generator_Account__c,
+"EffectivePriceDate" :payload.Start_Date__c,
+ 
+  //its an ID  and for descrption use product description
+  "SvcCode": flowVars.product[0].Name,
+"BillAheadCycles" :payload.Term__c,
+   "WasteProgramType": payload.Waste_Program_Type__c,
+//whats this........ 
+ "Description": flowVars.product[0].Description,
+ "TaxCategory" : payload.Tax_Category_Code__c,
    
-   "Price" : flowVars.orders[0].Price__c default '10',
-    "TerminateDate" : flowVars.orders[0].End_Date__c default '2099-05-17',
-     "EnergyAndInsurance": flowVars.orders[0].EI_Fee__c default '11',
-     "StopsPerYear":flowVars.orders[0].Stops_Per_Year__c,
-     "ContainersPerWasteStreamPerYear":flowVars.orders[0].Containers_Per_Year__c,
-     "ContainersPerWasteStreamPerStop":flowVars.orders[0].Containers_Per_Stop__c,
-     "WeightPerWasteStreamPerYear":flowVars.orders[0].Container_Weight_Per_Year__c,
-     "WeightPerWasteStreamPerStop":flowVars.orders[0].Container_Weight_Per_Stop__c,
-     "OverageContainersPrice":flowVars.orders[0].Overage_Price_Per_Container__c,
-     "OverageWeightPrice":"",
-     "OverageStopPrice":flowVars.orders[0].Overage_Price_Per_Stop__c
-    
-    
-    //"PONumber": "po" default '123456',
-    //"ExternalServiceOrderNumber": "eson011" default 'ES-123456',
-    //"ServiceOrderNumber": flowVars.orders[0].Name default 'W-123456',
-    //"ExternalServiceOrderLineNumber": "esoln011" default 'WL-123456',
-    //"ServiceDocumentNumber": "sdn011" default '123456',
-    //"WasteProfileNumber": "wpn011" default '123456',
-    //"ServiceDate": flowVars.orders[0].SVMXC__Completed_Date_Time__c default '12/03/04',
-    //"SvcCode": lines.Processed_As_Item__c default '123456',
-   // "Description": lines.Item_Description__c default 'test',
-   
-   
-    //"TaxCategory" : "RECYCLE",
-    //"UnitPrice": lines.SVMXC__Actual_Price2__c default '120',
-    //"MixedWasteFlag": 0,
-    //"ShippingQuantity": lines.Total_Quantity_11__c default '9',
-    //"TaxCategory": ".",
-    //"BilledQuantity": lines.Bill_Qty__c default '9',
-    //"BilledUOM": lines.Bill_UOM__c default 'LBS',
-    //"ShippingWeight": lines.Total_Quantity_11__c default '9',
-    //"LocationDimension": flowVars.orders[0].Revenue_Location__c default '9408',
+   "Price" : payload.Price__c,
+"TerminateDate" : payload.End_Date__c,
+ "EnergyAndInsurance": payload.EI_Fee__c,
+ "StopsPerYear":payload.Stops_Per_Year__c,
+ "ContainersPerWasteStreamPerYear":payload.Containers_Per_Year__c,
+ "ContainersPerWasteStreamPerStop":payload.Containers_Per_Stop__c,
+ "WeightPerWasteStreamPerYear":payload.Container_Weight_Per_Year__c,
+ "WeightPerWasteStreamPerStop":payload.Container_Weight_Per_Stop__c,
+ "OverageContainersPrice":payload.Overage_Price_Per_Container__c,
+ "OverageWeightPrice":"",
+ "OverageStopPrice":payload.Overage_Price_Per_Stop__c
+
+
+
 	
-})]]></dw:set-payload>
+}]]></dw:set-payload>
                     </dw:transform-message>
                     <logger message="Update Request to Steriworks :  #[payload]" level="INFO" doc:name="Logger"/>
                     <http:request config-ref="HTTP_Request_Configuration" path="AddSiteProgramSchedules" method="POST" doc:name=" HTTP Steriworks Add">
@@ -203,6 +171,10 @@ payload map ((lines , indexOfAccount) -> {
  
     </flow>
     <sub-flow name="SubFlowAccount">
-        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Customer_Dynamics_AX_Number__c,Id FROM Account WHERE Name = '#[payload.Customer_Account__c]'" doc:name="Salesforce"/>
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Dynamics_AX_Customer_Number__c,Id FROM Account WHERE Id = '#[payload.Customer_Account__c]'" doc:name="Salesforce"/>
+    </sub-flow>
+    <sub-flow name="recfeeProduct">
+        <sfdc:query config-ref="Salesforce__Basic_Authentication" query="dsql:SELECT Description,Name FROM Product2 where Id= '#[flowVars.orders[0].Product__c]'" doc:name="Salesforce"/>
+        <logger message="#[payload]" level="INFO" doc:name="Logger"/>
     </sub-flow>
 </mule>
